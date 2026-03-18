@@ -2,7 +2,7 @@
   description = "CHIP host tools and ZAP CLI";
 
   inputs = {
-    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2511";
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
   };
 
   outputs =
