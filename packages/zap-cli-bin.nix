@@ -51,32 +51,23 @@ stdenvNoCC.mkDerivation {
     nodePackages.asar
   ];
 
-  doInstallCheck = true;
+  doInstallCheck = stdenvNoCC.hostPlatform.system == stdenvNoCC.buildPlatform.system;
 
   installPhase = ''
     runHook preInstall
 
-    install -d "$out/bin" "$out/libexec/zap-cli-bin"
-    cp -R ./. "$out/libexec/zap-cli-bin"
-
     ${lib.optionalString isLinux ''
-      asar extract "$out/libexec/zap-cli-bin/resources/app.asar" "$out/libexec/zap-cli-app"
+      install -d "$out/bin"
+
+      asar extract ./resources/app.asar "$out/libexec/zap-cli-app"
 
       makeWrapper ${lib.getExe nodejs_20} "$out/bin/zap-cli" \
         --argv0 zap-cli \
         --add-flags ${lib.escapeShellArg linuxMainProcess}
-
-      makeWrapper ${lib.getExe nodejs_20} "$out/bin/zap" \
-        --argv0 zap \
-        --add-flags ${lib.escapeShellArg linuxMainProcess}
     ''}
 
     ${lib.optionalString isDarwin ''
-      ln -s "$out/libexec/zap-cli-bin/zap-cli" "$out/bin/zap-cli"
-
-      if [ -x "$out/libexec/zap-cli-bin/zap.app/Contents/MacOS/zap" ]; then
-        ln -s "$out/libexec/zap-cli-bin/zap.app/Contents/MacOS/zap" "$out/bin/zap"
-      fi
+      install -Dm755 ./zap-cli "$out/bin/zap-cli"
     ''}
 
     runHook postInstall
