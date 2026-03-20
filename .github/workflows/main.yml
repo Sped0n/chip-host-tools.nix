@@ -134,6 +134,7 @@ jobs:
           restore-prefixes-all-matches: build-${{ runner.os }}-${{ matrix.system }}-
           paths: &build-cache-paths |
             ~/.cache/nix
+            /nix/var/cache/ccache
 
       - name: Prepare ccache
         run: |
