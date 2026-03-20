@@ -8,6 +8,7 @@
   outputs =
     { nixpkgs, ... }:
     let
+      buildIsInGha = builtins.getEnv "GHA_CCACHE_MAX_SIZE" != "";
       systems = [
         "x86_64-linux"
         "aarch64-linux"
@@ -15,6 +16,17 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
+      ccacheOverlay = final: prev: {
+        ccacheWrapper = prev.ccacheWrapper.override {
+          extraConfig = ''
+            export CCACHE_COMPRESS=1
+            export CCACHE_MAXSIZE="${builtins.getEnv "GHA_CCACHE_MAX_SIZE"}"
+            export CCACHE_SLOPPINESS=random_seed
+            export CCACHE_DIR="/nix/var/cache/ccache"
+            export CCACHE_UMASK=007
+          '';
+        };
+      };
     in
     {
       packages = forAllSystems (
@@ -23,6 +35,7 @@
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
+            overlays = nixpkgs.lib.optional buildIsInGha ccacheOverlay;
           };
           zapCliBin = pkgs.callPackage ./packages/zap-cli-bin.nix { };
           chipHostTools = pkgs.callPackage ./packages/chip-host-tools.nix {
