@@ -98,7 +98,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       CCACHE_DIR: /nix/var/cache/ccache
-      GHA_CCACHE_MAX_SIZE: 500M
+      CCACHE_MAX_SIZE: 200M
     strategy:
       fail-fast: false
       matrix:
@@ -152,7 +152,6 @@ jobs:
             nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
           fi
           sudo chmod -R ug+rwX,o-rwx "$CCACHE_DIR"
-          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" --set-config=max_size="$GHA_CCACHE_MAX_SIZE"
           sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -z
 
       - name: Build packages
@@ -161,7 +160,7 @@ jobs:
           set -euo pipefail
 
           paths="$({
-            nix build -L --print-out-paths --impure --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
+            nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
               .#packages.${{ matrix.system }}.zap-cli-bin \
               .#packages.${{ matrix.system }}.chip-host-tools
           } | sort -u)"
@@ -183,6 +182,8 @@ jobs:
         if: ${{ always() }}
         run: |
           set -euo pipefail
+          sudo --preserve-env=CCACHE_DIR,CCACHE_MAX_SIZE "$(command -v ccache)" -M "$CCACHE_MAX_SIZE"
+          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -c
           sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -svv
 
       - name: Move Determinate runtime state out of cache path
