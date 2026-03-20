@@ -136,6 +136,12 @@ jobs:
             ~/.cache/nix
             /nix/var/cache/ccache
 
+      - name: Install build tools
+        run: nix profile add --inputs-from . nixpkgs#ccache nixpkgs#cachix
+
+      - name: Add Nix profile binaries to PATH
+        run: echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+
       - name: Prepare ccache
         run: |
           set -euo pipefail
@@ -143,12 +149,11 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo chown -R --reference=/nix/store "$CCACHE_DIR"
           else
-            nix shell --inputs-from . nixpkgs#coreutils -c sh -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
+            nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
           fi
           sudo chmod -R ug+rwX,o-rwx "$CCACHE_DIR"
-
-      - name: Install build tools
-        run: nix profile install --inputs-from . nixpkgs#ccache nixpkgs#cachix nixpkgs#dust
+          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" --set-config=max_size="$GHA_CCACHE_MAX_SIZE"
+          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -svv
 
       - name: Build packages
         id: build
@@ -176,7 +181,9 @@ jobs:
 
       - name: Show ccache stats
         if: ${{ always() }}
-        run: sudo "$(command -v dust)" "$CCACHE_DIR"
+        run: |
+          set -euo pipefail
+          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -svv
 
       - name: Move Determinate runtime state out of cache path
         if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
