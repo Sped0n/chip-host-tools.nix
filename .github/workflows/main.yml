@@ -153,7 +153,7 @@ jobs:
           fi
           sudo chmod -R ug+rwX,o-rwx "$CCACHE_DIR"
           sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" --set-config=max_size="$GHA_CCACHE_MAX_SIZE"
-          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -svv
+          sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -z
 
       - name: Build packages
         id: build
