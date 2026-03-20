@@ -62,15 +62,13 @@ let
     "chip_inet_config_enable_ipv4=false"
     "symbol_level=0"
     "is_debug=false"
+    ''custom_toolchain="//build/toolchain/custom"''
     ''target_cc="${ccCompiler}"''
     ''target_cxx="${cxxCompiler}"''
     ''target_ar="${stdenv.cc.bintools}/bin/ar"''
     ''target_cpu="${gnTargetCpu}"''
   ]
-  ++ lib.optionals stdenv.isDarwin [
-    ''custom_toolchain="//build/toolchain/custom"''
-    ''mac_deployment_target="darwin"''
-  ];
+  ++ lib.optionals stdenv.isDarwin [ ''mac_deployment_target="darwin"'' ];
 
   fetchedSubmoduleSources = [
     {
