@@ -1,4 +1,4 @@
-# chip-host-tools
+# chip-host-tools.nix
 
 Standalone flake for Project CHIP host tooling.
 
@@ -42,9 +42,9 @@ home.packages = [
 ];
 ```
 
-## Binary cache
+## Binary Cache
 
-For `x86_64-linux` and `aarch64-linux`, you can optionally use this Cachix cache:
+For `x86_64-linux` and `aarch64-darwin`, you can optionally use this Cachix cache:
 
 ```sh
 extra-substituters = https://sped0n.cachix.org
