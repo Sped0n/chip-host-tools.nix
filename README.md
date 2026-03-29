@@ -55,8 +55,8 @@ Example with `nix` command-line options:
 
 ```sh
 nix build github:Sped0n/chip-host-tools.nix#chip-host-tools \
-  --option extra-substituters https://sped0n.cachix.org \
-  --option extra-trusted-public-keys sped0n.cachix.org-1:Hc94uahq5qcwbGBZ2+VCq1mGEV/c3AbSsPU+sb2ZI+U=
+  --option extra-substituters https://nix-cache.sped0n.com \
+  --option extra-trusted-public-keys nix-cache.sped0n.com-1:2QjPOhbTs8xHYPpe0tuGIQQ+DFmEZMv05UAfHzU9Crg=
 ```
 
 This is my personal Nix cache. It may help speed up builds, but it is provided as-is and I am not responsible for its availability, contents, or any issues caused by using it.
