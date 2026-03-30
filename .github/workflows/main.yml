@@ -215,31 +215,36 @@ jobs:
 
       - name: Push built paths to nix-cache.sped0n.com
         env:
-          AWS_ACCESS_KEY_ID: writer
-          AWS_DEFAULT_REGION: us-east-1
-          AWS_REGION: us-east-1
-          AWS_EC2_METADATA_DISABLED: "true"
           NIX_CACHE_SECRET_ACCESS_KEY: ${{ secrets.NIX_CACHE_SECRET_ACCESS_KEY }}
           NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
         run: |
           set -euo pipefail
 
-          export AWS_SECRET_ACCESS_KEY="$(printf '%s' "$NIX_CACHE_SECRET_ACCESS_KEY" | tr -d '\r\n')"
-
           signing_key_file="$RUNNER_TEMP/nix-cache-signing-key"
+          secret_key_file="$RUNNER_TEMP/nix-cache-secret-access-key"
+
           cleanup() {
-            rm -f "$signing_key_file"
+            rm -f "$signing_key_file" "$secret_key_file"
           }
           trap cleanup EXIT
 
           printf '%s' "$NIX_CACHE_SIGNING_KEY" > "$signing_key_file"
           chmod 600 "$signing_key_file"
 
-          printf '%s\n' "${{ steps.build.outputs.paths }}" \
-            | nix store sign --stdin --recursive --key-file "$signing_key_file"
+          printf '%s' "$NIX_CACHE_SECRET_ACCESS_KEY" > "$secret_key_file"
+          chmod 600 "$secret_key_file"
+
+          nix profile add github:Sped0n/nix-cache-push
+
+          nix-cache-push config set endpoint nix-cache.sped0n.com
+          nix-cache-push config set bucket nix-cache
+          nix-cache-push config set region us-east-1
+          nix-cache-push config set accessKeyId writer
+          nix-cache-push config set signingKeyPath "$signing_key_file"
+          nix-cache-push config set secretKeyPath "$secret_key_file"
 
           printf '%s\n' "${{ steps.build.outputs.paths }}" \
-            | nix copy --stdin --to 's3://nix-cache?scheme=https&endpoint=nix-cache.sped0n.com&region=us-east-1&addressing-style=path&multipart-upload=true&multipart-chunk-size=33554432&multipart-threshold=67108864&compression=zstd'
+            | nix-cache-push
 
       - name: Show ccache stats
         if: ${{ always() }}
