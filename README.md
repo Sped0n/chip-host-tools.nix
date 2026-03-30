@@ -47,7 +47,7 @@ home.packages = [
 For `x86_64-linux` and `aarch64-darwin`, you can optionally use this Cachix cache:
 
 ```sh
-extra-substituters = https://sped0n.cachix.org
+extra-substituters = https://sped0n.cachix.org/nix-cache
 extra-trusted-public-keys = sped0n.cachix.org-1:Hc94uahq5qcwbGBZ2+VCq1mGEV/c3AbSsPU+sb2ZI+U=
 ```
 
@@ -55,7 +55,7 @@ Example with `nix` command-line options:
 
 ```sh
 nix build github:Sped0n/chip-host-tools.nix#chip-host-tools \
-  --option extra-substituters https://nix-cache.sped0n.com \
+  --option extra-substituters https://nix-cache.sped0n.com/nix-cache \
   --option extra-trusted-public-keys nix-cache.sped0n.com-1:2QjPOhbTs8xHYPpe0tuGIQQ+DFmEZMv05UAfHzU9Crg=
 ```
 
