@@ -19,6 +19,7 @@
   src,
   openthreadSrc,
   fetchedSubmoduleSources,
+  skippedSubmodulePaths ? [ ],
 }:
 let
   pythonEnv = python3.withPackages (
@@ -74,6 +75,10 @@ let
       }
     ];
 
+  linkedSubmoduleSources = builtins.filter (
+    source: !(builtins.elem source.path skippedSubmodulePaths)
+  ) submoduleSources;
+
   linkSubmodules = lib.concatMapStringsSep "\n" (
     { path, src }:
     ''
@@ -81,7 +86,7 @@ let
       mkdir -p "$(dirname "${path}")"
       ln -s ${src} "${path}"
     ''
-  ) submoduleSources;
+  ) linkedSubmoduleSources;
 in
 stdenv.mkDerivation {
   pname = "chip-host-tools";
@@ -125,9 +130,8 @@ stdenv.mkDerivation {
       old = """if (chip_device_platform == \"darwin\" || chip_crypto == \"boringssl\") {"""
       new = """if (chip_crypto == \"boringssl\") {"""
       content = path.read_text()
-      if old not in content:
-          raise SystemExit("failed to locate chip-tool boringssl dependency condition")
-      path.write_text(content.replace(old, new, 1))
+      if old in content:
+          path.write_text(content.replace(old, new, 1))
       '
     ''}
 

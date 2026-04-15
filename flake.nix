@@ -45,6 +45,9 @@
           chipHostTools_1_5_0_1 = pkgs.callPackage ./packages/chip-host-tools/1.5.0.1 {
             inherit zapCliBin;
           };
+          chipHostTools_1_4_0_0 = pkgs.callPackage ./packages/chip-host-tools/1.4.0.0 {
+            inherit zapCliBin;
+          };
           chipHostTools_1_4_2_0 = pkgs.callPackage ./packages/chip-host-tools/1.4.2.0 {
             inherit zapCliBin;
           };
@@ -54,6 +57,7 @@
         in
         {
           zap-cli-bin = zapCliBin;
+          chip-host-tools_1_4_0_0 = chipHostTools_1_4_0_0;
           chip-host-tools_1_4_2_0 = chipHostTools_1_4_2_0;
           chip-host-tools_1_5_0_1 = chipHostTools_1_5_0_1;
           chip-host-tools_1_5_1_0 = chipHostTools_1_5_1_0;
