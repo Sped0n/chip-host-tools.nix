@@ -20,12 +20,13 @@
           extraConfig = ''
             export CCACHE_COMPRESS=1
             export CCACHE_SLOPPINESS=random_seed
+            export CCACHE_UMASK=007
 
             if [ -d /nix/var/cache/ccache ] && [ -w /nix/var/cache/ccache ]; then
               export CCACHE_DIR=/nix/var/cache/ccache
-              export CCACHE_UMASK=007
             else
-              export CCACHE_DISABLE=1
+              export CCACHE_DIR="''${TMPDIR:-/tmp}/ccache"
+              mkdir -p "$CCACHE_DIR"
             fi
           '';
         };

@@ -8,6 +8,10 @@ on:
       - ".github/workflows/main.yml"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: write
   id-token: write
@@ -29,40 +33,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Cleanup
-        run: &cleanup-disk |
-          set -euo pipefail
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            before_kib="$(df --output=avail / | tail -1)"
-          else
-            before_kib="$(df -k / | awk 'END { print $4 }')"
-          fi
-
-          echo "::group::Free space before cleanup"
-          df -h
-          echo "::endgroup::"
-
-          echo "::group::Cleaned Files"
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /opt/hostedtoolcache
-          sudo rm -rf /usr/local/.ghcup/ghc
-          echo "::endgroup::"
-
-          echo "::group::Free space after cleanup"
-          df -h
-          echo "::endgroup::"
-
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            after_kib="$(df --output=avail / | tail -1)"
-          else
-            after_kib="$(df -k / | awk 'END { print $4 }')"
-          fi
-
-          reclaimed_tenths_gib="$(( (after_kib - before_kib) * 10 / 1024 / 1024 ))"
-          printf 'Reclaimed: %d.%d GiB\n' \
-            "$(( reclaimed_tenths_gib / 10 ))" \
-            "$(( reclaimed_tenths_gib % 10 ))"
 
       - name: Set up Nix
         uses: DeterminateSystems/determinate-nix-action@main
@@ -150,9 +120,6 @@ jobs:
         include: *build-matrix
 
     steps:
-      - name: Cleanup
-        run: *cleanup-disk
-
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -168,23 +135,18 @@ jobs:
           path: ~/.cache/nix
           key: nix-dotcache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}
 
-      - name: Restore caches
-        id: nix-cache-restore
-        uses: nix-community/cache-nix-action/restore@v7
+      - name: Restore ccache
+        id: ccache-restore
+        uses: actions/cache/restore@v4
         with:
-          primary-key: nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
-          restore-prefixes-all-matches: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
-          paths: &build-cache-paths |
-            /nix/var/cache/ccache
+          path: ${{ runner.temp }}/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Install build tools
-        run: nix profile add --inputs-from . nixpkgs#ccache
-
-      - name: Add Nix profile binaries to PATH
-        run: echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
-
-      - name: Prepare ccache
+      - name: Set up ccache permissions for restore
+        env:
+          CCACHE_STAGING_DIR: ${{ runner.temp }}/ccache
         run: |
           set -euo pipefail
           sudo mkdir -m0770 -p "$CCACHE_DIR"
@@ -193,7 +155,29 @@ jobs:
           else
             nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
           fi
-          sudo chmod -R ug+rwX,o-rwx "$CCACHE_DIR"
+          sudo chmod -R 0777 "$CCACHE_DIR"
+          if [ -d "$CCACHE_STAGING_DIR" ]; then
+            sudo cp -a "$CCACHE_STAGING_DIR"/. "$CCACHE_DIR"/
+            sudo chmod -R 0777 "$CCACHE_DIR"
+          fi
+
+      - name: Restore caches
+        id: nix-cache-restore
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
+          restore-prefixes-all-matches: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install build tools
+        run: nix profile add --inputs-from . nixpkgs#ccache
+
+      - name: Add Nix profile binaries to PATH
+        run: echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+
+      - name: Reset ccache stats
+        run: |
+          set -euo pipefail
           sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -z
 
       - name: Build packages
@@ -202,7 +186,7 @@ jobs:
           set -euo pipefail
 
           paths="$({
-            nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
+            nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR=$CCACHE_DIR" \
               .#packages.${{ matrix.system }}.zap-cli-bin \
               .#packages.${{ matrix.system }}.chip-host-tools_1_5_0_1 \
               .#packages.${{ matrix.system }}.chip-host-tools_1_5_1_0
@@ -259,16 +243,42 @@ jobs:
         if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
         run: *move-determinate-state
 
-      - name: Relax ccache permissions for cache save
-        if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
-        run: sudo chmod -R a+rX "$CCACHE_DIR"
-
       - name: Save ~/.cache/nix
         if: ${{ always() && steps.nix-dotcache-restore.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/nix
           key: nix-dotcache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}
+
+      - name: Set up ccache permissions for save
+        if: ${{ always() }}
+        env:
+          CCACHE_STAGING_DIR: ${{ runner.temp }}/ccache
+        run: |
+          set -euo pipefail
+          rm -rf "$CCACHE_STAGING_DIR"
+          mkdir -p "$CCACHE_STAGING_DIR"
+          sudo mkdir -m0770 -p "$CCACHE_DIR"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo chown -R --reference=/nix/store "$CCACHE_DIR"
+          else
+            nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
+          fi
+          sudo cp -a "$CCACHE_DIR"/. "$CCACHE_STAGING_DIR"/
+          sudo rm -rf "$CCACHE_STAGING_DIR"/tmp "$CCACHE_STAGING_DIR"/lock
+          sudo chown -R "$USER":"$(id -gn)" "$CCACHE_STAGING_DIR"
+          chmod -R u+rwX,go-rwx "$CCACHE_STAGING_DIR"
+
+      - name: Save ccache
+        if: ${{ always() && steps.ccache-restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+
+      - name: Remove ccache before Nix cache save
+        if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
+        run: sudo rm -rf "$CCACHE_DIR"
 
       - name: Save caches
         if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
@@ -277,7 +287,6 @@ jobs:
           primary-key: ${{ steps.nix-cache-restore.outputs.primary-key }}
           gc-max-store-size-linux: 4G
           gc-max-store-size-macos: 4G
-          paths: *build-cache-paths
           purge: true
           purge-prefixes: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
           purge-created: 0
