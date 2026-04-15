@@ -3,16 +3,16 @@
   fetchFromGitHub,
   zapCliBin,
 }:
-callPackage ./base.nix {
+callPackage ../base.nix {
   inherit zapCliBin;
 
-  version = "1.5.0.1";
+  version = "1.5.1.0";
 
   src = fetchFromGitHub {
     owner = "project-chip";
     repo = "connectedhomeip";
-    rev = "v1.5.0.1";
-    hash = "sha256-L2HqSqBzB/a1SWbOSVWTQplTyMhJFhmKgA2aS0SPxRo=";
+    rev = "v1.5.1.0";
+    hash = "sha256-U1LcoeZGY2RmSgH3CVMAO9UxFZPcpgWDbtRNdH1WDR0=";
   };
 
   openthreadSrc = fetchFromGitHub {

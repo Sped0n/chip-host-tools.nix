@@ -41,11 +41,12 @@
             config.allowUnfree = true;
             overlays = [ ccacheOverlay ];
           };
-          zapCliBin = pkgs.callPackage ./packages/zap-cli-bin.nix { };
-          chipHostTools_1_5_0_1 = pkgs.callPackage ./packages/chip-host-tools/1.5.0.1.nix {
+          zapCliBin = pkgs.callPackage ./packages/zap-cli-bin { };
+          chipHostTools_1_5_0_1 = pkgs.callPackage ./packages/chip-host-tools/1.5.0.1 {
             inherit zapCliBin;
           };
           chipHostTools_1_5_1_0 = pkgs.callPackage ./packages/chip-host-tools/1.5.1.0.nix {
+          chipHostTools_1_5_1_0 = pkgs.callPackage ./packages/chip-host-tools/1.5.1.0 {
             inherit zapCliBin;
           };
         in
