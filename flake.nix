@@ -41,14 +41,19 @@
             overlays = [ ccacheOverlay ];
           };
           zapCliBin = pkgs.callPackage ./packages/zap-cli-bin.nix { };
-          chipHostTools = pkgs.callPackage ./packages/chip-host-tools.nix {
+          chipHostTools_1_5_0_1 = pkgs.callPackage ./packages/chip-host-tools/1.5.0.1.nix {
+            inherit zapCliBin;
+          };
+          chipHostTools_1_5_1_0 = pkgs.callPackage ./packages/chip-host-tools/1.5.1.0.nix {
             inherit zapCliBin;
           };
         in
         {
           zap-cli-bin = zapCliBin;
-          chip-host-tools = chipHostTools;
-          default = chipHostTools;
+          chip-host-tools_1_5_0_1 = chipHostTools_1_5_0_1;
+          chip-host-tools_1_5_1_0 = chipHostTools_1_5_1_0;
+          chip-host-tools = chipHostTools_1_5_1_0;
+          default = chipHostTools_1_5_1_0;
         }
       );
     };

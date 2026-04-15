@@ -204,7 +204,8 @@ jobs:
           paths="$({
             nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
               .#packages.${{ matrix.system }}.zap-cli-bin \
-              .#packages.${{ matrix.system }}.chip-host-tools
+              .#packages.${{ matrix.system }}.chip-host-tools_1_5_0_1 \
+              .#packages.${{ matrix.system }}.chip-host-tools_1_5_1_0
           } | sort -u)"
 
           {
