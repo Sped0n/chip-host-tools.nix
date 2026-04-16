@@ -32,6 +32,12 @@ nix shell github:Sped0n/chip-host-tools.nix#chip-host-tools
 nix shell github:Sped0n/chip-host-tools.nix#zap-cli-bin
 ```
 
+`nix-direnv` example
+
+```sh
+use flake github:Sped0n/chip-host-tools.nix#chip-host-tools
+```
+
 Flake example
 
 ```nix
