@@ -53,8 +53,8 @@ home.packages = [
 For `x86_64-linux` and `aarch64-darwin`, you can optionally use this Cachix cache:
 
 ```sh
-extra-substituters = https://sped0n.cachix.org/nix-cache
-extra-trusted-public-keys = sped0n.cachix.org-1:Hc94uahq5qcwbGBZ2+VCq1mGEV/c3AbSsPU+sb2ZI+U=
+extra-substituters = https://nix-cache.sped0n.com/nix-cache
+extra-trusted-public-keys = nix-cache.sped0n.com-1:2QjPOhbTs8xHYPpe0tuGIQQ+DFmEZMv05UAfHzU9Crg=
 ```
 
 Example with `nix` command-line options:
