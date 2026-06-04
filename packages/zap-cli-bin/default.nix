@@ -2,8 +2,8 @@
   fetchzip,
   lib,
   makeWrapper,
-  nodePackages,
-  nodejs_20,
+  asar,
+  nodejs_24,
   stdenvNoCC,
 }:
 let
@@ -11,20 +11,20 @@ let
 
   sources = {
     x86_64-linux = {
-      url = "https://github.com/project-chip/zap/releases/download/v2026.02.26/zap-linux-x64.zip";
-      hash = "sha256-lpcPddY3p4FhZzEzNgI29k4Ol4XchzKpoEoDNHIt6xw=";
+      url = "https://github.com/project-chip/zap/releases/download/v2026.05.21/zap-linux-x64.zip";
+      hash = "sha256-QbOLOHpl/0WUY8HsAhfzdqdTT+0HSn3TG9j6uuAKQpM=";
     };
     aarch64-linux = {
-      url = "https://github.com/project-chip/zap/releases/download/v2026.02.26/zap-linux-arm64.zip";
-      hash = "sha256-aFDr5avCHdB7NVdsUdcLLA1FGd+Fdj1TjrKfL65zy1U=";
+      url = "https://github.com/project-chip/zap/releases/download/v2026.05.21/zap-linux-arm64.zip";
+      hash = "sha256-A13MtQXaSLgc3WLXJKS9RDVRkHnm4FZydDcLsZE1JH4=";
     };
     x86_64-darwin = {
-      url = "https://github.com/project-chip/zap/releases/download/v2026.02.26/zap-mac-x64.zip";
-      hash = "sha256-AUlQ28CDX5eCQwbOOsWFTVuPYTmDcszTAlcdUVZKzmk=";
+      url = "https://github.com/project-chip/zap/releases/download/v2026.05.21/zap-mac-x64.zip";
+      hash = "sha256-LYY5peXBMxCRLwKsjDDn4An54Jrb6ZKmkyKWGBZt1po=";
     };
     aarch64-darwin = {
-      url = "https://github.com/project-chip/zap/releases/download/v2026.02.26/zap-mac-arm64.zip";
-      hash = "sha256-lkEb3zmBkMkwPaYAaDG5j7j3lfnDb+DgE01AMNHichk=";
+      url = "https://github.com/project-chip/zap/releases/download/v2026.05.21/zap-mac-arm64.zip";
+      hash = "sha256-h3ehPggZ0KaHoXYCw1+g4zahwLlQef0Z6kaKNu7X91I=";
     };
   };
 
@@ -36,7 +36,7 @@ let
 in
 stdenvNoCC.mkDerivation {
   pname = "zap-cli-bin";
-  version = "2026.02.26";
+  version = "2026.05.21";
 
   src = fetchzip {
     inherit (source) url hash;
@@ -48,7 +48,7 @@ stdenvNoCC.mkDerivation {
 
   nativeBuildInputs = lib.optionals isLinux [
     makeWrapper
-    nodePackages.asar
+    asar
   ];
 
   doInstallCheck = stdenvNoCC.hostPlatform.system == stdenvNoCC.buildPlatform.system;
@@ -61,7 +61,7 @@ stdenvNoCC.mkDerivation {
 
       asar extract ./resources/app.asar "$out/libexec/zap-cli-app"
 
-      makeWrapper ${lib.getExe nodejs_20} "$out/bin/zap-cli" \
+      makeWrapper ${lib.getExe nodejs_24} "$out/bin/zap-cli" \
         --argv0 zap-cli \
         --add-flags ${lib.escapeShellArg linuxMainProcess}
     ''}
