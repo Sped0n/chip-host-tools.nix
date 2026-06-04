@@ -39,6 +39,7 @@ jobs:
         with:
           extra_nix_config: &nix-extra-conf |
             experimental-features = nix-command flakes
+            trusted-users = runner
             fallback = true
             builders-use-substitutes = true
             connect-timeout = 5
@@ -156,27 +157,7 @@ jobs:
           set -euo pipefail
           sudo --preserve-env=CCACHE_DIR "$(command -v ccache)" -z
 
-      - name: Build packages
-        id: build
-        run: |
-          set -euo pipefail
-
-          paths="$({
-            nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR=$CCACHE_DIR" \
-              .#packages.${{ matrix.system }}.zap-cli-bin \
-              .#packages.${{ matrix.system }}.chip-host-tools_1_4_0_0 \
-              .#packages.${{ matrix.system }}.chip-host-tools_1_4_2_0 \
-              .#packages.${{ matrix.system }}.chip-host-tools_1_5_0_1 \
-              .#packages.${{ matrix.system }}.chip-host-tools_1_5_1_0
-          } | sort -u)"
-
-          {
-            echo 'paths<<EOF'
-            printf '%s\n' "$paths"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Push built paths to nix-cache.sped0n.com
+      - name: Build and push packages
         env:
           NIX_CACHE_SECRET_ACCESS_KEY: ${{ secrets.NIX_CACHE_SECRET_ACCESS_KEY }}
           NIX_CACHE_SIGNING_KEY: ${{ secrets.NIX_CACHE_SIGNING_KEY }}
@@ -206,8 +187,44 @@ jobs:
           nix-cache-push config set signingKeyPath "$signing_key_file"
           nix-cache-push config set secretKeyPath "$secret_key_file"
 
-          printf '%s\n' "${{ steps.build.outputs.paths }}" \
-            | nix-cache-push
+          packages=(
+            chip-host-tools_1_4_0_0
+            chip-host-tools_1_4_2_0
+            chip-host-tools_1_5_0_1
+            chip-host-tools_1_5_1_0
+          )
+          failures=()
+
+          for package in "${packages[@]}"; do
+            echo "::group::Build $package"
+            if paths="$({
+              nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
+                ".#packages.${{ matrix.system }}.$package"
+            } | sort -u)"; then
+              printf '%s\n' "$paths"
+            else
+              echo "::error title=Build failed::$package"
+              failures+=("$package build")
+              echo "::endgroup::"
+              continue
+            fi
+            echo "::endgroup::"
+
+            echo "::group::Push $package"
+            if printf '%s\n' "$paths" | nix-cache-push; then
+              printf 'Pushed %s\n' "$package"
+            else
+              echo "::error title=Push failed::$package"
+              failures+=("$package push")
+            fi
+            echo "::endgroup::"
+          done
+
+          if [ "${#failures[@]}" -gt 0 ]; then
+            printf 'Failures:\n'
+            printf '  %s\n' "${failures[@]}"
+            exit 1
+          fi
 
       - name: Show ccache stats
         if: ${{ always() }}
