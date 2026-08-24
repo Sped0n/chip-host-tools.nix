@@ -68,16 +68,27 @@ jobs:
           purge-primary-key: never
 
   build:
-    name: build (${{ matrix.system }})
+    name: build ${{ matrix.package.name }} (${{ matrix.target.system }})
     needs: flake-check
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.target.runner }}
     env:
       CCACHE_DIR: /nix/var/cache/ccache
       CCACHE_MAX_SIZE: 200M
     strategy:
       fail-fast: false
       matrix:
-        include: *build-matrix
+        target: *build-matrix
+        package:
+          - name: chip-host-tools_1_4_0_0
+            version: 1.4.0.0
+          - name: chip-host-tools_1_4_2_0
+            version: 1.4.2.0
+          - name: chip-host-tools_1_5_0_1
+            version: 1.5.0.1
+          - name: chip-host-tools_1_5_1_0
+            version: 1.5.1.0
+          - name: chip-host-tools_1_6_0_0
+            version: 1.6.0.0
 
     steps:
       - name: Checkout
@@ -93,8 +104,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/ccache
-          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-${{ hashFiles(format('packages/chip-host-tools/{0}/**', matrix.package.version), 'packages/chip-host-tools/base.nix', 'packages/zap-cli-bin/**/*.nix', 'flake.nix', 'flake.lock') }}
           restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-
             ccache-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Set up ccache permissions for restore
@@ -106,7 +118,7 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo chown -R --reference=/nix/store "$CCACHE_DIR"
           else
-            nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
+            nix shell --inputs-from . nixpkgs#coreutils -c sudo chown -R --reference=/nix/store "$CCACHE_DIR"
           fi
           sudo chmod -R 0777 "$CCACHE_DIR"
           if [ -d "$CCACHE_STAGING_DIR" ]; then
@@ -118,8 +130,10 @@ jobs:
         id: nix-cache-restore
         uses: nix-community/cache-nix-action/restore@v7
         with:
-          primary-key: nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
+          primary-key: nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-${{ hashFiles(format('packages/chip-host-tools/{0}/**', matrix.package.version), 'packages/chip-host-tools/base.nix', 'packages/zap-cli-bin/**/*.nix', 'flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: |
+            nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-
+            nix-store-build-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install build tools
         run: nix profile add --inputs-from . nixpkgs#ccache
@@ -162,45 +176,17 @@ jobs:
           nix-cache-push config set signingKeyPath "$signing_key_file"
           nix-cache-push config set secretKeyPath "$secret_key_file"
 
-          packages=(
-            chip-host-tools_1_4_0_0
-            chip-host-tools_1_4_2_0
-            chip-host-tools_1_5_0_1
-            chip-host-tools_1_5_1_0
-            chip-host-tools_1_6_0_0
-          )
-          failures=()
+          echo "::group::Build ${{ matrix.package.name }}"
+          paths="$({
+            nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
+              ".#packages.${{ matrix.target.system }}.${{ matrix.package.name }}"
+          } | sort -u)"
+          printf '%s\n' "$paths"
+          echo "::endgroup::"
 
-          for package in "${packages[@]}"; do
-            echo "::group::Build $package"
-            if paths="$({
-              nix build -L --print-out-paths --cores 2 --max-jobs 1 --option extra-sandbox-paths "$CCACHE_DIR" \
-                ".#packages.${{ matrix.system }}.$package"
-            } | sort -u)"; then
-              printf '%s\n' "$paths"
-            else
-              echo "::error title=Build failed::$package"
-              failures+=("$package build")
-              echo "::endgroup::"
-              continue
-            fi
-            echo "::endgroup::"
-
-            echo "::group::Push $package"
-            if printf '%s\n' "$paths" | nix-cache-push; then
-              printf 'Pushed %s\n' "$package"
-            else
-              echo "::error title=Push failed::$package"
-              failures+=("$package push")
-            fi
-            echo "::endgroup::"
-          done
-
-          if [ "${#failures[@]}" -gt 0 ]; then
-            printf 'Failures:\n'
-            printf '  %s\n' "${failures[@]}"
-            exit 1
-          fi
+          echo "::group::Push ${{ matrix.package.name }}"
+          printf '%s\n' "$paths" | nix-cache-push
+          echo "::endgroup::"
 
       - name: Show ccache stats
         if: ${{ always() }}
@@ -222,7 +208,7 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo chown -R --reference=/nix/store "$CCACHE_DIR"
           else
-            nix shell --inputs-from . nixpkgs#coreutils -c bash -c 'sudo chown -R --reference=/nix/store "$CCACHE_DIR"'
+            nix shell --inputs-from . nixpkgs#coreutils -c sudo chown -R --reference=/nix/store "$CCACHE_DIR"
           fi
           sudo cp -a "$CCACHE_DIR"/. "$CCACHE_STAGING_DIR"/
           sudo rm -rf "$CCACHE_STAGING_DIR"/tmp "$CCACHE_STAGING_DIR"/lock
@@ -234,7 +220,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/ccache
-          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-${{ hashFiles(format('packages/chip-host-tools/{0}/**', matrix.package.version), 'packages/chip-host-tools/base.nix', 'packages/zap-cli-bin/**/*.nix', 'flake.nix', 'flake.lock') }}
 
       - name: Remove ccache before Nix cache save
         if: ${{ always() && steps.nix-cache-restore.outputs.hit-primary-key != 'true' }}
@@ -248,7 +234,7 @@ jobs:
           gc-max-store-size-linux: 4G
           gc-max-store-size-macos: 4G
           purge: true
-          purge-prefixes: nix-store-build-${{ runner.os }}-${{ runner.arch }}-
+          purge-prefixes: nix-store-build-${{ runner.os }}-${{ runner.arch }}-${{ matrix.package.name }}-
           purge-created: 0
           purge-last-accessed: P1DT12H
           purge-primary-key: never
