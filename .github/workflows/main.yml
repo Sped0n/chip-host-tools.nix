@@ -167,6 +167,7 @@ jobs:
             chip-host-tools_1_4_2_0
             chip-host-tools_1_5_0_1
             chip-host-tools_1_5_1_0
+            chip-host-tools_1_6_0_0
           )
           failures=()
 
